@@ -51,30 +51,45 @@ public final class Shamir {
     public SecretShare[] split(final BigInteger secret) {
         final int modLength = secret.bitLength() + 1;
 
+        // P>S and any any random number.
         P = new BigInteger(modLength, CERTAINTY, random);
+
+        // Coefficient of Equation
+        // ai < P && a0 = S
         final BigInteger[] coeff = new BigInteger[k - 1];
 
-        System.out.println("Prime Number & (a0): " + P);
+        System.out.println("a0: " + S);
 
+        // ai is a random number less than P
         for (int i = 0; i < k - 1; i++) {
             coeff[i] = randomZp(P);
             System.out.println("a" + (i + 1) + ": " + coeff[i]);
         }
 
+        // Mostly used for printing
         final SecretShare[] shares = new SecretShare[n];
         for (int i = 1; i <= n; i++) {
             BigInteger accum = secret;
 
             for (int j = 1; j < k; j++) {
-                final BigInteger t1 = BigInteger.valueOf(i).modPow(BigInteger.valueOf(j), P);
+
+                /*
+                 * Example -
+                 * if n=5, k=3 [j is from 1 to (k-1)]
+                 * and i=3, j=2
+                 * then
+                 * t1 = 3pow2
+                 * t2 = (coeff*t1) mod P
+                 */
+                final BigInteger t1 = BigInteger.valueOf(i).pow(j);
                 final BigInteger t2 = coeff[j - 1].multiply(t1).mod(P);
 
                 accum = accum.add(t2).mod(P);
             }
+
             shares[i - 1] = new SecretShare(i - 1, accum);
             System.out.println(shares[i - 1]);
         }
-
         return shares;
     }
 
@@ -196,27 +211,36 @@ public final class Shamir {
     public static void main(final String[] args) {
         Scanner sc = new Scanner(System.in);
 
-        System.out.print("Number of persons in a group: ");
+        System.out.print("Number of persons in a group (N): ");
         int N = sc.nextInt();
-        System.out.print("Number of minimum person required to unlock: ");
+        System.out.print("Number of minimum person required to unlock (K): ");
         int K = sc.nextInt();
+
         final Shamir shamir = new Shamir(K, N);
 
         // String Initialisation
         String text = FileReader();
+        // Converting String to Hex
         String hex = convertStringToHex(text);
 
+        // Converting Hex to Decimal.
         final BigInteger secret = new BigInteger(hex, 16);
+
+        // Creating Shares by spliting the shares accordingly to the sahre holders.
         final SecretShare[] shares = shamir.split(secret);
         final BigInteger prime = shamir.getP();
 
+        // Recunstruting the shares using Lagrange Polynomial Interpolation theorem.
         final Shamir shamir2 = new Shamir(K, N);
         final BigInteger result = shamir2.reconstruction(shares, prime);
+        // writing all the details in a file
         sharesWriter(S);
+        S = "";
 
         String plaintext = convertHexToString(result.toString(16));
         System.out.println("Decoded Secret is stored in: ");
 
+        // Writing the plaintext in a file.
         plainTextWriter(plaintext);
     }
 }
